@@ -3,6 +3,8 @@ Documentation   Using SeleniumLibrary to parse and export Grab E-Receipt from gm
 Library         SeleniumLibrary
 Library         OperatingSystem
 Library         DateTime
+Library         String
+Library         Collections
 Test Setup      Run firefox and gecko in marionette
 Test Teardown   Kill existing firefox and gecko
 
@@ -18,7 +20,7 @@ ${GMAIL_BTN_BACK}               xpath:/html/body/div[7]/div[3]/div/div[2]/div[1]
 ${SEARCH_TEXT_XPATH}            xpath:/html/body/div[7]/div[3]/div/div[1]/div[3]/header/div[2]/div[2]/div[2]/form/div/table/tbody/tr/td/table/tbody/tr/td/div/input[1]
 ${TOTAL_EMAIL_COUNT_XPATH}      xpath:/html/body/div[7]/div[3]/div/div[2]/div[1]/div[2]/div/div/div/div/div[1]/div[2]/div[2]/div[2]/div/span/div[1]/span/span[2]
 
-${RECEIPT_CONTENT_LOADED_XPATH}       xpath:/html/body/div[7]/div[3]/div/div[2]/div[1]/div[2]/div/div/div/div/div[2]/div/div[1]/div/div[3]/div/table/tr/td[1]/div[2]/div[2]/div/div[3]/div/div/div/div/div/div[1]/div[2]/div[3]/div[3]/div/div[1]/table/tbody/tr/td/div/table
+${RECEIPT_CONTENT_LOADED_XPATH}       xpath:/html/body/div[7]/div[3]/div/div[2]/div[1]/div[2]/div/div/div/div/div[2]/div/div[1]/div/div[3]/div/table/tr/td[1]/div[2]/div[2]/div/div[3]/div/div/div/div/div/div[1]/div[2]/div[3]/div[3]/div/div[1]/table/tbody/tr/td/div
 ${RECEIPT_TOTAL_PAID_XPATH}           xpath:/html/body/div[7]/div[3]/div/div[2]/div[1]/div[2]/div/div/div/div/div[2]/div/div[1]/div/div[3]/div/table/tr/td[1]/div[2]/div[2]/div/div[3]/div/div/div/div/div/div[1]/div[2]/div[3]/div[3]/div/div[1]/table/tbody/tr/td/div/table/tbody/tr[3]/td/div[1]/table/tbody/tr/td[2]/div
 ${RECEIPT_PICKED_UP_DATE_XPATH}       xpath:/html/body/div[7]/div[3]/div/div[2]/div[1]/div[2]/div/div/div/div/div[2]/div/div[1]/div/div[3]/div/table/tr/td[1]/div[2]/div[2]/div/div[3]/div/div/div/div/div/div[1]/div[2]/div[3]/div[3]/div/div[1]/table/tbody/tr/td/div/table/tbody/tr[1]/td/table[2]/tbody/tr[2]/td[1]/div/div[2]/div[1]
 ${RECEIPT_PICKED_UP_LOCATION_XPATH}   xpath:/html/body/div[7]/div[3]/div/div[2]/div[1]/div[2]/div/div/div/div/div[2]/div/div[1]/div/div[3]/div/table/tr/td[1]/div[2]/div[2]/div/div[3]/div/div/div/div/div/div[1]/div[2]/div[3]/div[3]/div/div[1]/table/tbody/tr/td/div/table/tbody/tr[5]/td/table/tbody/tr/td/table/tbody/tr[1]/td[2]/div[1]
@@ -26,6 +28,10 @@ ${RECEIPT_PICKED_UP_TIME_XPATH}       xpath:/html/body/div[7]/div[3]/div/div[2]/
 ${RECEIPT_DROPPED_OFF_LOCATION_XPATH}  xpath:/html/body/div[7]/div[3]/div/div[2]/div[1]/div[2]/div/div/div/div/div[2]/div/div[1]/div/div[3]/div/table/tr/td[1]/div[2]/div[2]/div/div[3]/div/div/div/div/div/div[1]/div[2]/div[3]/div[3]/div/div[1]/table/tbody/tr/td/div/table/tbody/tr[5]/td/table/tbody/tr/td/table/tbody/tr[2]/td[2]/div[1]
 ${RECEIPT_DROPPED_OFF_TIME_XPATH}     xpath:/html/body/div[7]/div[3]/div/div[2]/div[1]/div[2]/div/div/div/div/div[2]/div/div[1]/div/div[3]/div/table/tr/td[1]/div[2]/div[2]/div/div[3]/div/div/div/div/div/div[1]/div[2]/div[3]/div[3]/div/div[1]/table/tbody/tr/td/div/table/tbody/tr[5]/td/table/tbody/tr/td/table/tbody/tr[2]/td[2]/div[2]
 
+${STR_REMOVE_DATE}   Picked up on${SPACE}
+${STR_REMOVE_TOTAL_PAID}    SGD${SPACE}
+
+&{LOCATION_DICTIONARY}  Changi=HOME    Shenton=OFFICE    Bedok=SITE
 
 *** Test Cases ***
 Exporting Grab E-Receipt from inbox
@@ -56,20 +62,41 @@ Exporting Grab E-Receipt from inbox
         Click Element   ${EMAIL_ROW}
         # comment
         Log To Console  Appending CSV file...
-        Wait Until Element Is Visible   ${RECEIPT_TOTAL_PAID_XPATH}     timeout=3s
+        Wait Until Element Is Visible   ${RECEIPT_TOTAL_PAID_XPATH}     timeout=5s
+
+        Log To Console  Field >> Get Total Paid
         ${RECEIPT_TOTAL_PAID} =     Get Text    ${RECEIPT_TOTAL_PAID_XPATH}
+        Log To Console  Field >> Get Start Date
         ${RECEIPT_PICKED_UP_DATE} =     Get Text    ${RECEIPT_PICKED_UP_DATE_XPATH}
+        Log To Console  Field >> Get Start Location
         ${RECEIPT_PICKED_UP_LOCATION} =     Get Text    ${RECEIPT_PICKED_UP_LOCATION_XPATH}
+        Log To Console  Field >> Get Start Time
         ${RECEIPT_PICKED_UP_TIME} =     Get Text    ${RECEIPT_PICKED_UP_TIME_XPATH}
+        Log To Console  Field >> Get End Location
         ${RECEIPT_DROPPED_OFF_LOCATION} =     Get Text    ${RECEIPT_DROPPED_OFF_LOCATION_XPATH}
+        Log To Console  Field >> Get End Time
         ${RECEIPT_DROPPED_OFF_TIME} =     Get Text    ${RECEIPT_DROPPED_OFF_TIME_XPATH}
+
+
+        # comment - Parse and reformat the output
+
+        # Transform "Picked up on 30 April 2021" => "30 April 2021"
+        ${NEW_PICKED_UP_DATE} =     Remove String  ${RECEIPT_PICKED_UP_DATE}  ${STR_REMOVE_DATE}  
+        # Parse "30 April 2021" => "2021-04-30 00:00:00.000" Python Date Object
+        ${NEW_DATE_FORMAT} =    Convert Date    ${NEW_PICKED_UP_DATE}   date_format=%d %B %Y    # 31 April 2021
+        # Transform "SGD 19.30" => "19.30"
+        ${NEW_TOTAL_PAID} =     Remove String   ${RECEIPT_TOTAL_PAID}   ${STR_REMOVE_TOTAL_PAID}
         
-        Append To File  ${EXPORT_FILENAME}  content="${RECEIPT_PICKED_UP_DATE}",
-        Append To File  ${EXPORT_FILENAME}  content="${RECEIPT_TOTAL_PAID}",
+        # comment
+        ${NEW_PICKED_UP_LOCATION} =     Try Find Location Alias    ${RECEIPT_PICKED_UP_LOCATION}
+        ${NEW_DROPPED_OFF_LOCATION} =     Try Find Location Alias    ${RECEIPT_DROPPED_OFF_LOCATION}
+        
+        Append To File  ${EXPORT_FILENAME}  content="${NEW_DATE_FORMAT}",
+        Append To File  ${EXPORT_FILENAME}  content="${NEW_TOTAL_PAID}",
         Append To File  ${EXPORT_FILENAME}  content="${RECEIPT_PICKED_UP_TIME}",
-        Append To File  ${EXPORT_FILENAME}  content="${RECEIPT_PICKED_UP_LOCATION}",
+        Append To File  ${EXPORT_FILENAME}  content="${NEW_PICKED_UP_LOCATION}",
         Append To File  ${EXPORT_FILENAME}  content="${RECEIPT_DROPPED_OFF_TIME}",
-        Append To File  ${EXPORT_FILENAME}  content="${RECEIPT_DROPPED_OFF_LOCATION}"\n
+        Append To File  ${EXPORT_FILENAME}  content="${NEW_DROPPED_OFF_LOCATION}"\n
 
         Capture Element Screenshot  ${RECEIPT_CONTENT_LOADED_XPATH}     receipt_${i + 1}.png
         
@@ -84,15 +111,31 @@ Create new CSV file
     Log To Console  Created file. ${filename}
     Return From Keyword     ${filename}
 
-Convert to CSV Friendly Date
-    [Arguments]     ${inputDate}
-    ${date} =   Convert Date  
-
 Scroll To Element
     [Arguments]  ${locator}
     ${x}=        Get Horizontal Position  ${locator}
     ${y}=        Get Vertical Position    ${locator}
     Execute Javascript  window.scrollTo(${x}, ${y})
+
+Try Find Location Alias
+    [Arguments]     ${location}
+    [Return]        ${alias}
+
+    ${x} =  Get Length  ${LOCATION_DICTIONARY}
+    ${keys} =   Get Dictionary Keys     ${LOCATION_DICTIONARY}
+    ${alias} =  Set Variable    ${location}
+
+    FOR     ${i}    IN RANGE    ${x}
+        ${mappedLocation} =    Set Variable    ${keys}[${i - 1}]
+        ${status}   ${value} =   Run Keyword And Ignore Error   Should Contain     ${location}  ${mappedLocation}
+
+        IF  '${status}' == 'PASS'
+            ${alias} =  Set Variable    ${LOCATION_DICTIONARY}[${mappedLocation}]
+            Exit For Loop
+        END
+    END
+    Log To Console  Given ${location}, final = ${alias}
+    
 
 *** Keywords ***
 Run firefox and gecko in marionette
